@@ -1,0 +1,7 @@
+*.*
+isim
+!.gitattributes
+!.gitignore
+!.gitkeep
+!*.vhd
+!*.md
