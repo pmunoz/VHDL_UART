@@ -1,22 +1,17 @@
 ----------------------------------------------------------------------------------
--- Company: 
--- Engineer: 
--- 
--- Create Date:    09:08:58 05/22/2019 
--- Design Name: 
--- Module Name:    Shift-Registry_8bit - Behavioral 
--- Project Name: 
--- Target Devices: 
--- Tool versions: 
--- Description: 
---
--- Dependencies: 
---
--- Revision: 
--- Revision 0.01 - File Created
--- Additional Comments: 
---
+--| Author: Pablo Muñoz Galindo 
+--|
+--| Project Name:   VHDL Simple UART
+--| Module Name:    Shift-Registry_8bit - Behavioral 
+--| Description:    Shift registry to do serial/parallel conversion
+--|
+--| Created:    	  09:08:58 05/22/2019
+--| Tested using: 
+--|
+--| (c)2019 Pablo Muñoz
+--| This code is licensed under MIT license (see LICENSE.md for details)
 ----------------------------------------------------------------------------------
+
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
