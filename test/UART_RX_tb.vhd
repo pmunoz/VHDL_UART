@@ -60,7 +60,7 @@ ARCHITECTURE behavior OF UART_RX_tb IS
 			wait for bit_period_ns;
 			
 			-- Data			
-			for i in payload'RANGE loop
+			for i in payload'REVERSE_RANGE loop
 				ser_out <= payload(i);			
 				wait for bit_period_ns;	
 			end loop;
@@ -98,9 +98,9 @@ BEGIN
       -- hold reset state for 100 ns.
       wait for 100 ns;	
 		
-		-- Empty data transfer with Reset = '1'
-		Reset <= '1';		
-		Gen_UART_Data_Transfer(baudrate_RX, "00000000", Serial_in);
+--		-- Empty data transfer with Reset = '1'
+--		Reset <= '1';		
+--		Gen_UART_Data_Transfer(baudrate_RX, "00000000", Serial_in);
 		
 		-- Data transfer with Reset = '0'
 		Reset <= '0';

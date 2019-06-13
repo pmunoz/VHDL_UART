@@ -110,13 +110,13 @@ BIT_PERIOD_TIMER : process (Clk_FSM, TIMER_BIT_reset, TIMER_bit) is begin
 	if TIMER_BIT_reset = '1' then
 		TIMER_BIT <= x"00";
 	else
-		if rising_edge(Clk_FSM) then
-			if TIMER_BIT >= TIMER_BIT_threshold then
+		if rising_edge(Clk_FSM) then		
+			TIMER_BIT <= TIMER_BIT + 1;
+			if TIMER_BIT >= TIMER_BIT_threshold-x"01" then
 				TIMER_BIT_expired <= '1';
 			else
 				TIMER_BIT_expired <= '0';
 			end if; 
-			TIMER_BIT <= TIMER_BIT + 1;
 		end if;
 	end if;
 	
@@ -139,7 +139,7 @@ TRANSITION_LOG : process(current_state, Serial_in, TIMER_BIT_expired, Reset) is 
 	next_state <= current_state;
 	case current_state is
 		when standby =>
-			if Reset = '0' and falling_edge(Serial_in) then next_state <= startBit; 
+			if Reset = '0' and falling_edge(Serial_in) then next_state <= waitForBit; 
 			end if;
 		when startBit =>
 			if rising_edge(TIMER_BIT_expired) then 
@@ -163,7 +163,7 @@ TRANSITION_LOG : process(current_state, Serial_in, TIMER_BIT_expired, Reset) is 
 end process;
 
 -- Output generation
-OUTPUT_GEN : process(current_state, Serial_in, ShiftReg_data_out) is begin
+OUTPUT_GEN : process(current_state, Serial_in, Reset,ShiftReg_data_out) is begin
 	
 	ShiftReg_capture <= '0';
 	ShiftReg_hold <= '0';
@@ -177,10 +177,14 @@ OUTPUT_GEN : process(current_state, Serial_in, ShiftReg_data_out) is begin
 		when standby =>
 			ShiftReg_reset <= '1';
 		when startBit =>		
-			TIMER_BIT_threshold <= x"07";
-			TIMER_BIT_reset <= '0';
+--			TIMER_BIT_threshold <= clk_multiplier(8 downto 1);
+--			TIMER_BIT_reset <= '0';
 		when waitForBit =>
-			TIMER_BIT_threshold <= x"10";
+			if ShiftReg_bitcount = x"00" then
+				TIMER_BIT_threshold <= clk_multiplier(8 downto 1)+clk_multiplier(7 downto 0)-x"01";
+			else
+				TIMER_BIT_threshold <= clk_multiplier(7 downto 0)-x"02";
+			end if;
 			TIMER_BIT_reset <= '0';
 		when sampleBit =>
 			ShiftReg_capture <= '1';		
