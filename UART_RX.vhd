@@ -92,7 +92,7 @@ SHIFT_REGISTRY : Shift_Registry_8bit_counter
 
 -- Clock prescaler for state machine
 tmp_calc <= Freq_base_Clk_FPGA/(clk_multiplier*default_baudrate);
-TIMER_PS_threshold <= tmp_calc(15 downto 0);
+TIMER_PS_threshold <= tmp_calc(16 downto 1);
 	
 CLOCK_PS : process(Clk) is begin
 		if rising_edge(Clk) then
@@ -135,14 +135,18 @@ STATE_REG : process (Clk_FSM) is begin
 end process;
 
 -- Transition logic
-TRANSITION_LOG : process(current_state, Serial_in, TIMER_BIT_expired) is begin
+TRANSITION_LOG : process(current_state, Serial_in, TIMER_BIT_expired, Reset) is begin
 	next_state <= current_state;
 	case current_state is
 		when standby =>
-			if falling_edge(Serial_in) then next_state <= startBit; 
+			if Reset = '0' and falling_edge(Serial_in) then next_state <= startBit; 
 			end if;
 		when startBit =>
-			next_state <= waitForBit;
+			if rising_edge(TIMER_BIT_expired) then 
+				next_state <= waitForBit;
+			else
+				next_state <= startBit;
+			end if;
 		when waitForBit =>
 			if rising_edge(TIMER_BIT_expired) then 
 				if ShiftReg_bitcount < x"08" then
@@ -166,18 +170,19 @@ OUTPUT_GEN : process(current_state, Serial_in, ShiftReg_data_out) is begin
 	ShiftReg_reset <= '0';
 	Correct_rx <= '0';
 	TIMER_BIT_reset <= '1';
-	TIMER_BIT_threshold <= x"00";
+	TIMER_BIT_threshold <= x"00";	
 	par_data <= x"00";
 	
 	case current_state is
 		when standby =>
 			ShiftReg_reset <= '1';
-		when startBit =>
-			TIMER_BIT_threshold <= x"18"; -- Count 24 Clk_FSM pulses for sampling of first data bit
+		when startBit =>		
+			TIMER_BIT_threshold <= x"07";
+			TIMER_BIT_reset <= '0';
 		when waitForBit =>
+			TIMER_BIT_threshold <= x"10";
 			TIMER_BIT_reset <= '0';
 		when sampleBit =>
-			TIMER_BIT_threshold <= x"10"; -- Count 16 Clk_FSM pulses for subsequent data bits
 			ShiftReg_capture <= '1';		
       when stopAndStore =>
 			ShiftReg_hold <= '1';

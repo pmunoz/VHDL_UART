@@ -1,36 +1,19 @@
---------------------------------------------------------------------------------
--- Company: 
--- Engineer:
---
--- Create Date:   18:08:40 05/23/2019
--- Design Name:   
--- Module Name:   E:/Desarrollo/Workspace_ISE/VHDL_UART/Shift_Registry_8bit_counter_testbench.vhd
--- Project Name:  UART
--- Target Device:  
--- Tool versions:  
--- Description:   
--- 
--- VHDL Test Bench Created by ISE for module: Shift_Registry_8bit_counter
--- 
--- Dependencies:
--- 
--- Revision:
--- Revision 0.01 - File Created
--- Additional Comments:
---
--- Notes: 
--- This testbench has been automatically generated using types std_logic and
--- std_logic_vector for the ports of the unit under test.  Xilinx recommends
--- that these types always be used for the top-level I/O of a design in order
--- to guarantee that the testbench will bind correctly to the post-implementation 
--- simulation model.
---------------------------------------------------------------------------------
+----------------------------------------------------------------------------------
+--| Author: Pablo Muñoz Galindo 
+--|
+--| Project Name:   VHDL Simple UART
+--| Module Name:    Shift_Registry_8bit_counter_tb
+--| Description:    VHDL Test Bench Shift_Registry_8bit_counter
+--|
+--| Created:    	  18:08:40 05/23/2019
+--| Tested using:   isim
+--|
+--| (c)2019 Pablo Muñoz
+--| This code is licensed under MIT license (see LICENSE.md for details)
+----------------------------------------------------------------------------------
+
 LIBRARY ieee;
 USE ieee.std_logic_1164.ALL;
- 
--- Uncomment the following library declaration if using
--- arithmetic functions with Signed or Unsigned values
---USE ieee.numeric_std.ALL;
  
 ENTITY Shift_Registry_8bit_counter_testbench IS
 END Shift_Registry_8bit_counter_testbench;
