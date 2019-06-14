@@ -14,6 +14,10 @@
 
 LIBRARY ieee;
 USE ieee.std_logic_1164.ALL;
+USE ieee.numeric_std.ALL;
+
+LIBRARY work;
+use work.txt_util.all;
 
 ENTITY UART_RX_tb IS
 END UART_RX_tb;
@@ -69,6 +73,16 @@ ARCHITECTURE behavior OF UART_RX_tb IS
 			ser_out <= '1';
 			wait for bit_period_ns;
 	end procedure;
+	
+	procedure test_checker(constant condition : in boolean; constant msg_ok , msg_fail : in string) is
+	begin
+		assert condition;
+		if condition = true then
+			report msg_ok severity note;
+		else
+			report msg_fail severity error;
+		end if;
+	end procedure;
  
 BEGIN
  
@@ -93,7 +107,8 @@ BEGIN
 
    -- Stimulus process
    stim_proc: process
-	constant baudrate_RX : integer := 9600;
+	constant baudrate_RX : integer := 9600;	
+	variable test_data : std_logic_vector(7 downto 0) :=x"00";
    begin		
       -- hold reset state for 100 ns.
       wait for 100 ns;	
@@ -102,10 +117,65 @@ BEGIN
 --		Reset <= '1';		
 --		Gen_UART_Data_Transfer(baudrate_RX, "00000000", Serial_in);
 		
-		-- Data transfer with Reset = '0'
+		-- TEST 1: Data transfer with Reset = '0', "10101011"
 		Reset <= '0';
 		wait for 100 ns;		
-		Gen_UART_Data_Transfer(baudrate_RX, "10101011", Serial_in);
+		test_data := "10101011";
+		Gen_UART_Data_Transfer(baudrate_RX, test_data, Serial_in);
+		
+		test_checker(
+			Data_out=test_data,
+			" >>>>>>>>>>>>>>>>>> [ Test 1 ==> OK!    ]: Gen: 0x" & hstr(test_data) & " , Rcv: 0x" & hstr(Data_out),
+			" >>>>>>>>>>>>>>>>>> [ Test 1 ==> ERROR! ]: Gen: 0x" & hstr(test_data) & " , Rcv: 0x" & hstr(Data_out)
+		);
+		
+		-- TEST 2: Data transfer with Reset = '0', "11111111"
+		Reset <= '0';
+		wait for 100 ns;		
+		test_data := "11111111";
+		Gen_UART_Data_Transfer(baudrate_RX, test_data, Serial_in);
+		
+		test_checker(
+			Data_out=test_data,
+			" >>>>>>>>>>>>>>>>>> [ Test 2 ==> OK!    ]: Gen: 0x" & hstr(test_data) & " , Rcv: 0x" & hstr(Data_out),
+			" >>>>>>>>>>>>>>>>>> [ Test 2 ==> ERROR! ]: Gen: 0x" & hstr(test_data) & " , Rcv: 0x" & hstr(Data_out)
+		);
+		
+		-- TEST 3: Data transfer with Reset = '0', "00000000"
+		Reset <= '0';
+		wait for 100 ns;		
+		test_data := "00000000";
+		Gen_UART_Data_Transfer(baudrate_RX, test_data, Serial_in);
+		
+		test_checker(
+			Data_out=test_data,
+			" >>>>>>>>>>>>>>>>>> [ Test 3 ==> OK!    ]: Gen: 0x" & hstr(test_data) & " , Rcv: 0x" & hstr(Data_out),
+			" >>>>>>>>>>>>>>>>>> [ Test 3 ==> ERROR! ]: Gen: 0x" & hstr(test_data) & " , Rcv: 0x" & hstr(Data_out)
+		);
+		
+		-- TEST 4: Data transfer with Reset = '1', "11111111"
+		Reset <= '1';
+		wait for 100 ns;		
+		--test_data := "11111111";
+		Gen_UART_Data_Transfer(baudrate_RX, "11111111", Serial_in);
+		
+		test_checker(
+			Data_out=test_data,
+			" >>>>>>>>>>>>>>>>>> [ Test 4 ==> OK!    ]: Gen: 0x" & hstr(test_data) & " , Rcv: 0x" & hstr(Data_out),
+			" >>>>>>>>>>>>>>>>>> [ Test 4 ==> ERROR! ]: Gen: 0x" & hstr(test_data) & " , Rcv: 0x" & hstr(Data_out)
+		);
+		
+		-- TEST 5: Data transfer with Reset = '0', "01010101"
+		Reset <= '0';
+		wait for 100 ns;		
+		test_data := "01010101";
+		Gen_UART_Data_Transfer(baudrate_RX, test_data, Serial_in);
+		
+		test_checker(
+			Data_out=test_data,
+			" >>>>>>>>>>>>>>>>>> [ Test 5 ==> OK!    ]: Gen: 0x" & hstr(test_data) & " , Rcv: 0x" & hstr(Data_out),
+			" >>>>>>>>>>>>>>>>>> [ Test 5 ==> ERROR! ]: Gen: 0x" & hstr(test_data) & " , Rcv: 0x" & hstr(Data_out)
+		);
 		
       wait;
    end process;

@@ -43,6 +43,14 @@ component Shift_Registry_8bit_counter is
 	 );
 end component;
 
+component Registry_8bit is
+    Port ( Clk : in STD_LOGIC;
+			  Reset : in STD_LOGIC;
+			  input : in  STD_LOGIC_VECTOR (7 downto 0);
+			  output : out STD_LOGIC_VECTOR (7 downto 0)
+	 );
+end component;
+
 ------------------------------------------------------------------------
 -- Type definitions
 ------------------------------------------------------------------------
@@ -72,11 +80,14 @@ signal ShiftReg_data_out : std_logic_vector(7 downto 0);
 signal ShiftReg_bitcount : std_logic_vector(7 downto 0);
 signal stopBit : std_logic := '0';
 
-signal par_data : std_logic_vector(7 downto 0) := x"00";
+signal Reg_capture : std_logic := '0';
+signal Reg_reset : std_logic := '1';
+signal Reg_input : std_logic_vector (7 downto 0);
+signal Reg_output : std_logic_vector (7 downto 0);
+
+--signal par_data : std_logic_vector(7 downto 0) := x"00";
 
 begin
-
-Data_out <= par_data;
 
 -- Shift registry for UART
 SHIFT_REGISTRY : Shift_Registry_8bit_counter
@@ -88,7 +99,18 @@ SHIFT_REGISTRY : Shift_Registry_8bit_counter
 		Carry_out => open,
 		Par_out => ShiftReg_data_out,
 		Counter_out => ShiftReg_bitcount);
+		
+-- Output registry
+OUTPUT_REGISTRY : Registry_8bit
+	port map (
+		Clk => Reg_capture,
+		Reset => Reset  ,
+		input => Reg_input,
+		output => Reg_output);
 
+-- Other connections
+Reg_input <= ShiftReg_data_out;
+Data_out <= Reg_output;
 
 -- Clock prescaler for state machine
 tmp_calc <= Freq_base_Clk_FPGA/(clk_multiplier*default_baudrate);
@@ -139,14 +161,10 @@ TRANSITION_LOG : process(current_state, Serial_in, TIMER_BIT_expired, Reset) is 
 	next_state <= current_state;
 	case current_state is
 		when standby =>
-			if Reset = '0' and falling_edge(Serial_in) then next_state <= waitForBit; 
+			if Reset = '0' and falling_edge(Serial_in) then next_state <= startBit; 
 			end if;
 		when startBit =>
-			if rising_edge(TIMER_BIT_expired) then 
 				next_state <= waitForBit;
-			else
-				next_state <= startBit;
-			end if;
 		when waitForBit =>
 			if rising_edge(TIMER_BIT_expired) then 
 				if ShiftReg_bitcount < x"08" then
@@ -163,25 +181,26 @@ TRANSITION_LOG : process(current_state, Serial_in, TIMER_BIT_expired, Reset) is 
 end process;
 
 -- Output generation
-OUTPUT_GEN : process(current_state, Serial_in, Reset,ShiftReg_data_out) is begin
+OUTPUT_GEN : process(current_state, Serial_in, Reset,ShiftReg_data_out, ShiftReg_bitcount) is begin
 	
 	ShiftReg_capture <= '0';
 	ShiftReg_hold <= '0';
 	ShiftReg_reset <= '0';
 	Correct_rx <= '0';
 	TIMER_BIT_reset <= '1';
-	TIMER_BIT_threshold <= x"00";	
-	par_data <= x"00";
+	TIMER_BIT_threshold <= x"00";
+	Reg_capture <= '0';
 	
 	case current_state is
 		when standby =>
+			ShiftReg_hold <= '1';
+		when startBit =>
 			ShiftReg_reset <= '1';
-		when startBit =>		
 --			TIMER_BIT_threshold <= clk_multiplier(8 downto 1);
 --			TIMER_BIT_reset <= '0';
 		when waitForBit =>
 			if ShiftReg_bitcount = x"00" then
-				TIMER_BIT_threshold <= clk_multiplier(8 downto 1)+clk_multiplier(7 downto 0)-x"01";
+				TIMER_BIT_threshold <= clk_multiplier(8 downto 1)+clk_multiplier(7 downto 0)-x"02";
 			else
 				TIMER_BIT_threshold <= clk_multiplier(7 downto 0)-x"02";
 			end if;
@@ -191,7 +210,7 @@ OUTPUT_GEN : process(current_state, Serial_in, Reset,ShiftReg_data_out) is begin
       when stopAndStore =>
 			ShiftReg_hold <= '1';
 			if Serial_in = '1' then Correct_rx <= '1'; end if;
-			par_data <= ShiftReg_data_out;
+			Reg_capture <= '1';
 	end case;
 end process;
 
