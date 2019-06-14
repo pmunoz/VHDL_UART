@@ -4,4 +4,5 @@ isim
 !.gitignore
 !.gitkeep
 !*.vhd
+!*.vhdl
 !*.md
