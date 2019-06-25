@@ -40,6 +40,22 @@ component Registry_8bit is
 	 );
 end component;
 
+component d_FF_asyncReset is
+	 Port ( Clk : in  STD_LOGIC;	
+		  Reset : in STD_LOGIC;
+		  Reset_val : in STD_LOGIC;
+		  D : in STD_LOGIC;
+		  Q : out STD_LOGIC
+		  );
+end component;
+
+
+component Counter is
+    Port ( Reset : in  STD_LOGIC;
+           Clk : in  STD_LOGIC;
+			  Count : out unsigned);
+end component;
+
 ------------------------------------------------------------------------
 -- Type definitions
 ------------------------------------------------------------------------
@@ -67,11 +83,14 @@ signal Reg_capture : std_logic := '0';
 signal Reg_input : std_logic_vector (7 downto 0);
 signal Reg_output : std_logic_vector (7 downto 0);
 
-signal bit_pointer : unsigned(4 downto 0):= "00000";
+--signal bit_pointer : unsigned(4 downto 0):= "00000";
 
-signal output_bs_D : std_logic := '1';
-signal output_bs_Q : std_logic := '1';
-signal output_bs_Clk : std_logic := '0'; 
+signal output_ff_Clk : std_logic := '0';
+signal output_ff_D : std_logic := '1'; 
+
+signal bitPointer_Clk : std_logic := '0';
+signal bitPointer_Reset : std_logic := '1';
+signal bitPointer_Count : unsigned (3 downto 0);
 
 begin
 
@@ -83,7 +102,25 @@ INPUT_REGISTRY : Registry_8bit
 		Reset => Reset  ,
 		input => Data_in,
 		output => Reg_output);
+		
+-- Output flip-flop
+OUTPUT_FF : d_FF_asyncReset
+	port map (
+		Clk => output_ff_Clk,
+		Reset => Reset,
+		Reset_val => '1',
+		D => output_ff_D,
+		Q => Serial_out);
 
+-- BIT POINTER
+BIT_POINTER : Counter
+	port map (
+		Reset => bitPointer_Reset,
+		Clk => bitPointer_Clk,
+		Count => bitPointer_Count
+		);
+			  
+		
 -- Other connections
 --Reg_input <= ShiftReg_data_out;
 --Data_out <= Reg_output;
@@ -130,12 +167,7 @@ STATE_REG : process (Clk_FSM) is begin
 	end if;
 end process;
 
--- Output bistable
-OUTPUT_BS : process (output_bs_Clk) is begin
-	if rising_edge(output_bs_Clk) then
-		output_bs_Q <= output_bs_D;
-	end if;
-end process;
+
 
 -- Transition logic
 TRANSITION_LOG : process(current_state,Reset,TIMER_BIT_expired,Write_en) is begin
@@ -150,7 +182,7 @@ TRANSITION_LOG : process(current_state,Reset,TIMER_BIT_expired,Write_en) is begi
 			end if;
 		when txDataBit =>
 			if rising_edge(TIMER_BIT_expired) then 
-				if bit_pointer < x"08" then
+				if bitPointer_Count < x"08" then
 					next_state <= incPointer;
 				else
 					next_state <= stopBit;
@@ -166,15 +198,16 @@ TRANSITION_LOG : process(current_state,Reset,TIMER_BIT_expired,Write_en) is begi
 end process;
 
 -- Output generation
-OUTPUT_GEN : process(current_state,output_bs_Q,Reg_output,bit_pointer) is begin
+OUTPUT_GEN : process(current_state,Reg_output,bitPointer_Count) is begin
 	TIMER_BIT_reset <= '1';
 	TIMER_BIT_threshold <= x"00";	
 	Reg_capture <= '0';
-	--Reg_reset <= '0';
-	Serial_out <= '1';
-	output_bs_Clk <= '0';
-	output_bs_D <= '0';	
-	Serial_out <= output_bs_Q; 
+	--Reg_reset <= '0';	
+	output_ff_Clk <= '0';
+	output_ff_D <= '0'; 	
+	bitPointer_Reset <= '1';
+	bitPointer_Clk <= '0';
+		
 	
 	case current_state is
 		when standby =>				
@@ -184,13 +217,14 @@ OUTPUT_GEN : process(current_state,output_bs_Q,Reg_output,bit_pointer) is begin
 			TIMER_BIT_threshold <= clk_multiplier(7 downto 0);
 			TIMER_BIT_reset <= '0';
 		when txDataBit =>
+			bitPointer_Reset <= '0';
 			TIMER_BIT_threshold <= clk_multiplier(7 downto 0);
 			TIMER_BIT_reset <= '0';
-			output_bs_D <= Reg_output(to_integer(bit_pointer));			
-			output_bs_Clk <= '1';	
+			output_ff_D <= Reg_output(to_integer(bitPointer_Count));			
+			output_ff_Clk <= '1';	
 		when incPointer =>
-			TIMER_BIT_reset <= '1';
-			bit_pointer<=bit_pointer+1;
+			bitPointer_Reset <= '0';			
+			bitPointer_Clk <= '1';
       when stopBit =>
 			Reg_capture <= '1';
 			TIMER_BIT_threshold <= clk_multiplier(7 downto 0);
