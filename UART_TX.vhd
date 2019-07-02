@@ -59,7 +59,7 @@ end component;
 ------------------------------------------------------------------------
 -- Type definitions
 ------------------------------------------------------------------------
-TYPE state IS (standby, startBit, txDataBit, incPointer, stopBit); -- definition of states for the FSM
+TYPE state IS (standby, startBit, waitForInitBit, txDataBit, incPointer, stopBit); -- definition of states for the FSM
 
 ------------------------------------------------------------------------
 -- Internal signals
@@ -174,15 +174,17 @@ TRANSITION_LOG : process(current_state,Reset,TIMER_BIT_expired,Write_en) is begi
 	next_state <= current_state;
 	case current_state is
 		when standby =>
-			if Reset = '0' and falling_edge(Write_en) then next_state <= startBit; 
+			if Reset = '0' and rising_edge(Write_en) then next_state <= startBit; 
 			end if;
-		when startBit =>
+		when startBit => 
+				next_state <=  waitForInitBit;
+		when waitForInitBit =>
 			if rising_edge(TIMER_BIT_expired) then 
-				next_state <=  txDataBit;
+				next_state <=  incPointer;
 			end if;
 		when txDataBit =>
 			if rising_edge(TIMER_BIT_expired) then 
-				if bitPointer_Count < x"08" then
+				if bitPointer_Count < x"09" then
 					next_state <= incPointer;
 				else
 					next_state <= stopBit;
@@ -199,8 +201,8 @@ end process;
 
 -- Output generation
 OUTPUT_GEN : process(current_state,Reg_output,bitPointer_Count) is begin
-	TIMER_BIT_reset <= '1';
-	TIMER_BIT_threshold <= x"00";	
+	TIMER_BIT_reset <= '0';
+	TIMER_BIT_threshold <= clk_multiplier(7 downto 0);	
 	Reg_capture <= '0';
 	--Reg_reset <= '0';	
 	output_ff_Clk <= '0';
@@ -210,25 +212,24 @@ OUTPUT_GEN : process(current_state,Reg_output,bitPointer_Count) is begin
 		
 	
 	case current_state is
-		when standby =>				
-			--Reg_reset <= '1';
-		when startBit =>					
+		when standby =>	
+			TIMER_BIT_reset <= '1';		
+		when startBit =>						
 			Reg_capture <= '1';
-			TIMER_BIT_threshold <= clk_multiplier(7 downto 0);
-			TIMER_BIT_reset <= '0';
-		when txDataBit =>
+			output_ff_D <= '0';			
+			output_ff_Clk <= '1';
+		when waitForInitBit =>		
+		when txDataBit =>		
 			bitPointer_Reset <= '0';
-			TIMER_BIT_threshold <= clk_multiplier(7 downto 0);
-			TIMER_BIT_reset <= '0';
-			output_ff_D <= Reg_output(to_integer(bitPointer_Count));			
+			output_ff_D <= Reg_output(to_integer(bitPointer_Count-1));			
 			output_ff_Clk <= '1';	
-		when incPointer =>
+		when incPointer =>			
+			TIMER_BIT_reset <= '1';		
 			bitPointer_Reset <= '0';			
 			bitPointer_Clk <= '1';
-      when stopBit =>
-			Reg_capture <= '1';
-			TIMER_BIT_threshold <= clk_multiplier(7 downto 0);
-			TIMER_BIT_reset <= '0';
+      when stopBit =>		
+			output_ff_D	<= '1';			
+			output_ff_Clk <= '1';
 	end case;		
 end process;
 
