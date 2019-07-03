@@ -32,7 +32,8 @@ ARCHITECTURE behavior OF UART_TX_tb IS
 		   Reset : in STD_LOGIC;
 		   Write_en : in STD_LOGIC;
 		   Data_in : in STD_LOGIC_VECTOR(7 downto 0);
-		   Serial_out : out STD_LOGIC
+		   Serial_out : out STD_LOGIC;			
+		   Busy : out STD_LOGIC
         );
     END COMPONENT;
     
@@ -44,12 +45,13 @@ ARCHITECTURE behavior OF UART_TX_tb IS
    signal Data_in: STD_LOGIC_VECTOR(7 downto 0) := (others=>'0');	
 
  	-- Outputs
-   signal Serial_out : std_logic := '1';
+   signal Serial_out : std_logic := '1';	
+   signal Busy : std_logic := '1';
 	
 	-- Test signals
 	signal sampled_data : std_logic_vector(7 downto 0):=x"00";
-	signal sampled_start_bit : std_logic := '1';
-	signal sampled_stop_bit : std_logic := '0';
+	signal sampled_start_bit : std_logic:='1';
+	signal sampled_stop_bit : std_logic:='0';
 	
 
    -- Clock period definitions
@@ -63,9 +65,12 @@ ARCHITECTURE behavior OF UART_TX_tb IS
 												signal stop_bit : out std_logic										
 												) is
 	variable bit_period_ns  : time;
+	variable clk_fsm_period_ns  : time;
+	constant clk_mult : integer := 16;
 	begin
 			-- period calculation in ns
 			bit_period_ns := (1e9/baudrate)*1ns;
+			clk_fsm_period_ns := (bit_period_ns/clk_mult);
 			
 			-- Startbit
 			wait for bit_period_ns/2;
@@ -79,7 +84,13 @@ ARCHITECTURE behavior OF UART_TX_tb IS
 			
 			-- Stopbit
 			wait for bit_period_ns;
-			stop_bit <= TX_line;
+			stop_bit <= TX_line;						
+			wait for bit_period_ns/2;
+			
+			-- If FSM is still busy due to bit period mismatch then we wait until machine is back to standby
+			if Busy='1' then
+				wait until Busy='0';
+			end if;
 	end procedure;
 	
 	procedure test_checker(constant condition : in boolean; constant msg_ok , msg_fail : in string) is
@@ -100,7 +111,8 @@ BEGIN
 			Reset => Reset,
 			Write_en => Write_en,
 			Data_in => Data_in,
-			Serial_out => Serial_out
+			Serial_out => Serial_out,
+			Busy => Busy
 		);
 
    -- Clock process definitions
@@ -123,21 +135,60 @@ BEGIN
       wait for 100 ns;			
 		Reset <= '0';
 		
-		wait for 100 ns;
-		
 		-- TEST 1: Transmit word "11111111"
 		test_data := x"FF";
 		Write_en <= '1';
 		Data_in <= test_data;
-		
 		Sample_UART_Data_Transfer(baudrate_TX, Serial_out, sampled_start_bit, sampled_data, sampled_stop_bit);
 		test_checker(
-			(sampled_data=test_data) AND (sampled_start_bit = '0') AND (sampled_stop_bit = '1'),
+			sampled_start_bit='0' AND sampled_data=test_data AND sampled_stop_bit = '1',
 			" >>>>>>>>>>>>>>>>>> [ Test 1 ==> OK!    ]: Gen: 0x" & hstr(test_data) & " , Tx: 0x" & hstr(sampled_data) 
 			& " , Start bit: " & str(sampled_start_bit) & " , Stop bit: " & str(sampled_stop_bit),
 			" >>>>>>>>>>>>>>>>>> [ Test 1 ==> Error!    ]: Gen: 0x" & hstr(test_data) & " , Tx: 0x" & hstr(sampled_data) 
 			& " , Start bit: " & str(sampled_start_bit) & " , Stop bit: " & str(sampled_stop_bit)
 		);
+		Write_en <= '0'; wait for 100 ns; 
+		
+		-- TEST 2: Wait one TX period without TX
+		test_data := x"FF";
+		Data_in <= x"CC";
+		
+		Sample_UART_Data_Transfer(baudrate_TX, Serial_out, sampled_start_bit, sampled_data, sampled_stop_bit);
+		test_checker(
+			sampled_start_bit='1' AND sampled_data=test_data AND sampled_stop_bit = '1',
+			" >>>>>>>>>>>>>>>>>> [ Test 2 ==> OK!    ]: Gen: 0x" & hstr(test_data) & " , Tx: 0x" & hstr(sampled_data) 
+			& " , Start bit: " & str(sampled_start_bit) & " , Stop bit: " & str(sampled_stop_bit),
+			" >>>>>>>>>>>>>>>>>> [ Test 2 ==> Error!    ]: Gen: 0x" & hstr(test_data) & " , Tx: 0x" & hstr(sampled_data) 
+			& " , Start bit: " & str(sampled_start_bit) & " , Stop bit: " & str(sampled_stop_bit)
+		);
+		
+		-- TEST 3: Transmit word "10101010"
+		test_data := x"AA";
+		Write_en <= '1';
+		Data_in <= test_data;
+		Sample_UART_Data_Transfer(baudrate_TX, Serial_out, sampled_start_bit, sampled_data, sampled_stop_bit);
+		test_checker(
+			sampled_start_bit='0' AND sampled_data=test_data AND sampled_stop_bit = '1',
+			" >>>>>>>>>>>>>>>>>> [ Test 3 ==> OK!    ]: Gen: 0x" & hstr(test_data) & " , Tx: 0x" & hstr(sampled_data) 
+			& " , Start bit: " & str(sampled_start_bit) & " , Stop bit: " & str(sampled_stop_bit),
+			" >>>>>>>>>>>>>>>>>> [ Test 3 ==> Error!    ]: Gen: 0x" & hstr(test_data) & " , Tx: 0x" & hstr(sampled_data) 
+			& " , Start bit: " & str(sampled_start_bit) & " , Stop bit: " & str(sampled_stop_bit)
+		);
+		Write_en <= '0'; wait for 100 ns;
+		
+		-- TEST 4: Transmit word "11001100"
+		test_data := x"CC";
+		Write_en <= '1';
+		Data_in <= test_data;
+		Sample_UART_Data_Transfer(baudrate_TX, Serial_out, sampled_start_bit, sampled_data, sampled_stop_bit);
+		test_checker(
+			sampled_start_bit='0' AND sampled_data=test_data AND sampled_stop_bit = '1',
+			" >>>>>>>>>>>>>>>>>> [ Test 4 ==> OK!    ]: Gen: 0x" & hstr(test_data) & " , Tx: 0x" & hstr(sampled_data) 
+			& " , Start bit: " & str(sampled_start_bit) & " , Stop bit: " & str(sampled_stop_bit),
+			" >>>>>>>>>>>>>>>>>> [ Test 4 ==> Error!    ]: Gen: 0x" & hstr(test_data) & " , Tx: 0x" & hstr(sampled_data) 
+			& " , Start bit: " & str(sampled_start_bit) & " , Stop bit: " & str(sampled_stop_bit)
+		);
+		Write_en <= '0'; wait for 100 ns;
 		
       wait;
    end process;

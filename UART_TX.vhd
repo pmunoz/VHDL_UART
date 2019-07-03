@@ -23,7 +23,8 @@ entity UART_TX is
 			  Reset : in STD_LOGIC;
 			  Write_en : in STD_LOGIC;
 			  Data_in : in STD_LOGIC_VECTOR(7 downto 0);
-			  Serial_out : out STD_LOGIC
+			  Serial_out : out STD_LOGIC;
+			  Busy : out STD_LOGIC
 			  );
 end UART_TX;
 
@@ -59,7 +60,7 @@ end component;
 ------------------------------------------------------------------------
 -- Type definitions
 ------------------------------------------------------------------------
-TYPE state IS (standby, startBit, waitForInitBit, txDataBit, incPointer, stopBit); -- definition of states for the FSM
+TYPE state IS (standby, loadStartBit, loadDataBit, loadStopBit, waitForBitTX); -- definition of states for the FSM
 
 ------------------------------------------------------------------------
 -- Internal signals
@@ -143,7 +144,8 @@ end process;
 -- Timer to count for bit periods and half-periods with asynchronous reset
 BIT_PERIOD_TIMER : process (Clk_FSM, TIMER_BIT_reset, TIMER_bit) is begin	
 	if TIMER_BIT_reset = '1' then
-		TIMER_BIT <= x"00";
+		TIMER_BIT <= x"00";		
+		TIMER_BIT_expired <= '0';
 	else
 		if rising_edge(Clk_FSM) then		
 			TIMER_BIT <= TIMER_BIT + 1;
@@ -170,67 +172,62 @@ end process;
 
 
 -- Transition logic
-TRANSITION_LOG : process(current_state,Reset,TIMER_BIT_expired,Write_en) is begin
+TRANSITION_LOG : process(current_state,Reset,TIMER_BIT_expired,Write_en, bitPointer_Count) is begin
 	next_state <= current_state;
+	
 	case current_state is
 		when standby =>
-			if Reset = '0' and rising_edge(Write_en) then next_state <= startBit; 
+			if Reset = '0' and rising_edge(Write_en) then next_state <= loadStartBit; 
 			end if;
-		when startBit => 
-				next_state <=  waitForInitBit;
-		when waitForInitBit =>
-			if rising_edge(TIMER_BIT_expired) then 
-				next_state <=  incPointer;
-			end if;
-		when txDataBit =>
-			if rising_edge(TIMER_BIT_expired) then 
+		when loadStartBit => 
+			next_state <= waitForBitTX;
+		when loadDataBit =>
+			next_state <= waitForBitTX;
+		when loadStopBit =>
+			next_state <= waitForBitTX;
+		when waitForBitTX =>
+			if TIMER_BIT_expired='1' then 
 				if bitPointer_Count < x"09" then
-					next_state <= incPointer;
-				else
-					next_state <= stopBit;
+					next_state <= loadDataBit;
+				elsif bitPointer_Count = x"09" then
+					next_state <= loadStopBit;
+				else 
+					next_state <= standby;
 				end if;
 			end if;
-		when incPointer =>
-			next_state <=  txDataBit; 
-      when stopBit =>
-			if rising_edge(TIMER_BIT_expired) then 
-				next_state <= standby;
-			end if;
-	end case;
+	end case;	
 end process;
 
 -- Output generation
 OUTPUT_GEN : process(current_state,Reg_output,bitPointer_Count) is begin
-	TIMER_BIT_reset <= '0';
-	TIMER_BIT_threshold <= clk_multiplier(7 downto 0);	
+
+	TIMER_BIT_reset <= '1';
+	TIMER_BIT_threshold <= clk_multiplier(7 downto 0)-2;	
 	Reg_capture <= '0';
-	--Reg_reset <= '0';	
 	output_ff_Clk <= '0';
 	output_ff_D <= '0'; 	
-	bitPointer_Reset <= '1';
+	bitPointer_Reset <= '0';
 	bitPointer_Clk <= '0';
-		
-	
+	busy <= '1';
+
 	case current_state is
-		when standby =>	
-			TIMER_BIT_reset <= '1';		
-		when startBit =>						
-			Reg_capture <= '1';
-			output_ff_D <= '0';			
-			output_ff_Clk <= '1';
-		when waitForInitBit =>		
-		when txDataBit =>		
-			bitPointer_Reset <= '0';
-			output_ff_D <= Reg_output(to_integer(bitPointer_Count-1));			
-			output_ff_Clk <= '1';	
-		when incPointer =>			
-			TIMER_BIT_reset <= '1';		
-			bitPointer_Reset <= '0';			
-			bitPointer_Clk <= '1';
-      when stopBit =>		
-			output_ff_D	<= '1';			
-			output_ff_Clk <= '1';
-	end case;		
+			when standby =>				
+				bitPointer_Reset <= '1';
+				busy <= '0';
+			when loadStartBit => 		
+				output_ff_Clk <= '1';
+				output_ff_D <= '0'; 
+				Reg_capture <= '1';
+			when loadDataBit =>			
+				output_ff_Clk <= '1';
+				output_ff_D <= Reg_output(to_integer(bitPointer_Count)-1);	
+			when loadStopBit =>			
+				output_ff_Clk <= '1';
+				output_ff_D <= '1'; 			
+			when waitForBitTX =>
+				TIMER_BIT_reset <= '0';
+				bitPointer_Clk <= '1';				
+	end case;	
 end process;
 
 end Behavioral;
