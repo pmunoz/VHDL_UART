@@ -23,7 +23,8 @@ entity UART_RX is
 			  Reset : in STD_LOGIC;
 			  Serial_in : in STD_LOGIC;
 			  Data_out : out STD_LOGIC_VECTOR(7 downto 0);
-			  Correct_rx : out std_logic
+			  Correct_rx : out std_logic;
+			  Busy : out std_logic
 			  );
 end UART_RX;
 
@@ -190,10 +191,12 @@ OUTPUT_GEN : process(current_state, Serial_in, Reset,ShiftReg_data_out, ShiftReg
 	TIMER_BIT_reset <= '1';
 	TIMER_BIT_threshold <= x"00";
 	Reg_capture <= '0';
+	Busy <= '1';
 	
 	case current_state is
 		when standby =>
 			ShiftReg_hold <= '1';
+			Busy <= '0';
 		when startBit =>
 			ShiftReg_reset <= '1';
 --			TIMER_BIT_threshold <= clk_multiplier(8 downto 1);

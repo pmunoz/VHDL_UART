@@ -32,7 +32,8 @@ ARCHITECTURE behavior OF UART_RX_tb IS
          Reset : IN  std_logic;
          Serial_in : IN  std_logic;
          Data_out : OUT  std_logic_vector(7 downto 0);
-         Correct_rx : OUT  std_logic
+         Correct_rx : OUT  std_logic;
+			Busy : OUT std_logic
         );
     END COMPONENT;
     
@@ -45,6 +46,7 @@ ARCHITECTURE behavior OF UART_RX_tb IS
  	-- Outputs
    signal Data_out : std_logic_vector(7 downto 0);
    signal Correct_rx : std_logic;
+	signal Busy : std_logic;
 
    -- Clock period definitions
    constant Clk_period : time := 20 ns;
@@ -92,7 +94,8 @@ BEGIN
           Reset => Reset,
           Serial_in => Serial_in,
           Data_out => Data_out,
-          Correct_rx => Correct_rx
+          Correct_rx => Correct_rx,
+			 Busy => Busy
         );
 
    -- Clock process definitions
