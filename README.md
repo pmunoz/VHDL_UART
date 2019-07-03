@@ -1,4 +1,6 @@
 # Simple UART in VHDL 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 UART module made in VHDL as an exercise to practise the language. Work in progress!
 
 ## UPDATES
