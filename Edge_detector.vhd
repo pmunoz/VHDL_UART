@@ -16,16 +16,18 @@
 
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
---use IEEE.NUMERIC_STD.ALL;
 
 
 entity Edge_detector is
     Port ( Signal_in : in  STD_LOGIC;
            Clk : in  STD_LOGIC;
            Reset : in  STD_LOGIC;
-			  Clear : in STD_LOGIC;
+			  Clear_rise : in STD_LOGIC;			  
+			  Clear_fall : in STD_LOGIC;
            rise_edge : out  STD_LOGIC;
-           fall_edge : out  STD_LOGIC);
+			  rise_edge_lock : out  STD_LOGIC;
+           fall_edge : out  STD_LOGIC;
+           fall_edge_lock : out  STD_LOGIC);
 end Edge_detector;
 
 architecture Behavioral of Edge_detector is
@@ -87,7 +89,7 @@ RE_FF : JK_FF_asyncReset
 		K => RE_ff_K,
 	   Reset => Reset,
 	   Clk => Clk,
-	   Q => rise_edge,
+	   Q => rise_edge_lock,
 		Qn => open);
 
 FE_FF : JK_FF_asyncReset
@@ -96,15 +98,17 @@ FE_FF : JK_FF_asyncReset
 		K => FE_ff_K,
 	   Reset => Reset,
 	   Clk => Clk,
-	   Q => fall_edge,
+	   Q => fall_edge_lock,
 		Qn => open);
 			  
 
 -- Combinational logic
-RE_ff_J <= (t1_ff_D AND (NOT t1_ff_Q)) AND (NOT Clear);
-RE_ff_K <= Clear;
-FE_ff_J <= (t1_ff_Q AND (NOT t1_ff_D)) AND (NOT CLEAR);
-FE_ff_K <= Clear;
+RE_ff_J <= (t1_ff_D AND (NOT t1_ff_Q)) AND (NOT Clear_rise);
+RE_ff_K <= Clear_rise;
+FE_ff_J <= (t1_ff_Q AND (NOT t1_ff_D)) AND (NOT Clear_fall);
+FE_ff_K <= Clear_fall;
+rise_edge <= RE_ff_J;
+fall_edge <= FE_ff_J;
 
 end Behavioral;
 

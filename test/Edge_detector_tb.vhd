@@ -44,9 +44,12 @@ ARCHITECTURE behavior OF Edge_detector_tb IS
          Signal_in : IN  std_logic;
          Clk : IN  std_logic;
          Reset : IN  std_logic;			
-			Clear : in STD_LOGIC;
-         rise_edge : OUT  std_logic;
-         fall_edge : OUT  std_logic
+			Clear_rise : in STD_LOGIC;				
+			Clear_fall : in STD_LOGIC;
+         rise_edge : out  STD_LOGIC;
+		   rise_edge_lock : out  STD_LOGIC;
+		   fall_edge : out  STD_LOGIC;
+		   fall_edge_lock : out  STD_LOGIC
         );
     END COMPONENT;
     
@@ -55,11 +58,14 @@ ARCHITECTURE behavior OF Edge_detector_tb IS
    signal Signal_in : std_logic := '0';
    signal Clk : std_logic := '0';
    signal Reset : std_logic := '1';
-	signal Clear : STD_LOGIC := '0';
+	signal Clear_rise : STD_LOGIC := '0';	
+	signal Clear_fall : STD_LOGIC := '0';
 
  	--Outputs
-   signal rise_edge : std_logic;
+   signal rise_edge : std_logic;	
+   signal rise_edge_lock : std_logic;
    signal fall_edge : std_logic;
+   signal fall_edge_lock : std_logic;
 
    -- Clock period definitions
    constant Clk_period : time := 20 ns;
@@ -71,9 +77,12 @@ BEGIN
           Signal_in => Signal_in,
           Clk => Clk,
           Reset => Reset,
-			 Clear => Clear,
-          rise_edge => rise_edge,
-          fall_edge => fall_edge
+			 Clear_rise => Clear_rise,			 
+			 Clear_fall => Clear_fall,
+          rise_edge => rise_edge,			 
+          rise_edge_lock => rise_edge_lock,
+          fall_edge => fall_edge,
+          fall_edge_lock => fall_edge_lock
         );
 
    -- Clock process definitions
@@ -92,18 +101,29 @@ BEGIN
       -- hold reset state for 100 ns.
       wait for 100 ns;	
 
+		-- TEST 1: Wait 10 Clk_period without any change in signal
 		Reset <= '0';
       wait for Clk_period*10;
 		
+		-- TEST 2: Generate rising edge and wait 10 Clk_period
 		Signal_in <= '1';
       wait for Clk_period*10;
 		
-		Clear<='1';
+		-- TEST 3: Unlock output signal and wait 11 Clk_period				
+		Clear_rise<='1';
 		wait for Clk_period;
-		clear<='0';
+		clear_rise<='0';
 		wait for Clk_period*11;
 		
+		-- TEST 4: Generate falling edge and wait 10 Clk_period
 		Signal_in <= '0';
+      wait for Clk_period*10;
+	   clear_fall<='1';
+		wait for Clk_period;
+		clear_fall<='0';
+		
+		-- TEST 5: Generate rising edge and wait 10 Clk_period (no output signal unlock)
+		Signal_in <= '1';
       wait for Clk_period*10;
 
       -- insert stimulus here 
