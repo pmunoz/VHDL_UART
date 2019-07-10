@@ -19,7 +19,8 @@ use IEEE.NUMERIC_STD.ALL;
 use IEEE.std_logic_unsigned.all;
 
 entity UART_RX is
-    Port ( Clk : in  STD_LOGIC;	
+    Port ( Clk_FSM : in  STD_LOGIC;
+			  clk_multiplier : in unsigned (31 downto 0);
 			  Reset : in STD_LOGIC;
 			  Serial_in : in STD_LOGIC;
 			  Data_out : out STD_LOGIC_VECTOR(7 downto 0);
@@ -52,6 +53,16 @@ component Registry_8bit is
 	 );
 end component;
 
+component UART_Clk_Prescaler
+    Port(
+         Clk : IN  std_logic;
+			Reset : IN std_logic;
+         baudrate_selection : IN  std_logic_vector(3 downto 0);
+         FSM_clk_multiplier : IN  unsigned(31 downto 0);
+         Clk_PS : OUT  std_logic
+        );
+end component;
+
 ------------------------------------------------------------------------
 -- Type definitions
 ------------------------------------------------------------------------
@@ -61,18 +72,10 @@ TYPE state IS (standby, startBit, waitForBit, sampleBit, stopAndStore); -- defin
 -- Internal signals
 ------------------------------------------------------------------------
 signal current_state, next_state : state := standby; -- Initialize state registries to standby	constant Freq_base_Clk_FPGA : unsigned(31 downto 0) := x"02FAF080"; -- 50e6 Hz;
-constant Freq_base_Clk_FPGA : unsigned(31 downto 0) := x"02FAF080"; -- 50e6 Hz;
-constant default_baudrate : unsigned(31 downto 0) := x"00002580"; -- 9600 bauds;	
-constant clk_multiplier : unsigned(31 downto 0) := x"00000010"; -- x16;
-signal tmp_calc : unsigned(31 downto 0) := x"00000000"; -- x16;
-signal TIMER_PS : unsigned(15 downto 0) := x"0000";
-signal TIMER_PS_threshold : unsigned(15 downto 0):=x"0001"; 
 signal TIMER_BIT : unsigned(7 downto 0);
 signal TIMER_BIT_threshold : unsigned(7 downto 0) := x"00";
 signal TIMER_BIT_expired : std_logic := '0';
 signal TIMER_BIT_reset : std_logic := '1';
-
-signal Clk_FSM : std_logic := '0';
 
 signal ShiftReg_capture : std_logic := '0';
 signal ShiftReg_hold : std_logic := '0';
@@ -112,21 +115,6 @@ OUTPUT_REGISTRY : Registry_8bit
 -- Other connections
 Reg_input <= ShiftReg_data_out;
 Data_out <= Reg_output;
-
--- Clock prescaler for state machine
-tmp_calc <= Freq_base_Clk_FPGA/(clk_multiplier*default_baudrate);
-TIMER_PS_threshold <= tmp_calc(16 downto 1);
-	
-CLOCK_PS : process(Clk) is begin
-		if rising_edge(Clk) then
-			if(TIMER_PS = TIMER_PS_threshold) then
-				TIMER_PS <= x"0000";
-				Clk_FSM <= NOT Clk_FSM;
-			else
-				TIMER_PS <= TIMER_PS+1;			
-			end if;
-		end if;
-end process;
 
 -- Timer to count for bit periods and half-periods with asynchronous reset
 BIT_PERIOD_TIMER : process (Clk_FSM, TIMER_BIT_reset, TIMER_bit) is begin	
@@ -182,7 +170,7 @@ TRANSITION_LOG : process(current_state, Serial_in, TIMER_BIT_expired, Reset) is 
 end process;
 
 -- Output generation
-OUTPUT_GEN : process(current_state, Serial_in, Reset,ShiftReg_data_out, ShiftReg_bitcount) is begin
+OUTPUT_GEN : process(current_state, Serial_in, Reset,ShiftReg_data_out, ShiftReg_bitcount,clk_multiplier) is begin
 	
 	ShiftReg_capture <= '0';
 	ShiftReg_hold <= '0';
