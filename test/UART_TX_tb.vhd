@@ -28,7 +28,8 @@ ARCHITECTURE behavior OF UART_TX_tb IS
  
     COMPONENT UART_TX
     PORT(
-         Clk : in  STD_LOGIC;	
+         Clk_FSM : in  STD_LOGIC;			
+			clk_multiplier : in unsigned (31 downto 0);
 		   Reset : in STD_LOGIC;
 		   Write_en : in STD_LOGIC;
 		   Data_in : in STD_LOGIC_VECTOR(7 downto 0);
@@ -39,7 +40,8 @@ ARCHITECTURE behavior OF UART_TX_tb IS
     
 
    -- Inputs
-   signal Clk : std_logic := '0';
+   signal Clk_FSM : std_logic := '0';		
+	signal clk_multiplier : unsigned(31 downto 0) := x"00000010";
    signal Reset : std_logic := '1';
    signal Write_en : std_logic := '0';	
    signal Data_in: STD_LOGIC_VECTOR(7 downto 0) := (others=>'0');	
@@ -55,7 +57,9 @@ ARCHITECTURE behavior OF UART_TX_tb IS
 	
 
    -- Clock period definitions
-   constant Clk_period : time := 20 ns;
+   constant Clk_FPGA_period : time := 20 ns;	
+   constant Clk_FSM_period : time := 6512 ns;
+	
 	
 	-- Procedures
 	procedure Sample_UART_Data_Transfer(constant baudrate : in integer;
@@ -107,7 +111,8 @@ BEGIN
  
 	-- Instantiate the Unit Under Test (UUT)
 	uut: UART_TX PORT MAP (	
-			Clk => Clk,
+			Clk_FSM => Clk_FSM,
+			clk_multiplier => clk_multiplier,
 			Reset => Reset,
 			Write_en => Write_en,
 			Data_in => Data_in,
@@ -116,12 +121,12 @@ BEGIN
 		);
 
    -- Clock process definitions
-   Clk_process :process
+   Clk_FSM_process :process
    begin
-		Clk <= '0';
-		wait for Clk_period/2;
-		Clk <= '1';
-		wait for Clk_period/2;
+		Clk_FSM <= '0';
+		wait for Clk_FSM_period/2;
+		Clk_FSM <= '1';
+		wait for Clk_FSM_period/2;
    end process;
  
 

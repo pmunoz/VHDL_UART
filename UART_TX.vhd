@@ -19,7 +19,8 @@ use IEEE.NUMERIC_STD.ALL;
 use IEEE.std_logic_unsigned.all;
 
 entity UART_TX is
-    Port ( Clk : in  STD_LOGIC;	
+    Port ( Clk_FSM : in  STD_LOGIC;				  
+			  clk_multiplier : in unsigned (31 downto 0);
 			  Reset : in STD_LOGIC;
 			  Write_en : in STD_LOGIC;
 			  Data_in : in STD_LOGIC_VECTOR(7 downto 0);
@@ -66,18 +67,18 @@ TYPE state IS (standby, loadStartBit, loadDataBit, loadStopBit, waitForBitTX); -
 -- Internal signals
 ------------------------------------------------------------------------
 signal current_state, next_state : state := standby; -- Initialize state registries to standby	constant Freq_base_Clk_FPGA : unsigned(31 downto 0) := x"02FAF080"; -- 50e6 Hz;
-constant Freq_base_Clk_FPGA : unsigned(31 downto 0) := x"02FAF080"; -- 50e6 Hz;
-constant default_baudrate : unsigned(31 downto 0) := x"00002580"; -- 9600 bauds;	
-constant clk_multiplier : unsigned(31 downto 0) := x"00000010"; -- x16;
-signal tmp_calc : unsigned(31 downto 0) := x"00000000"; -- x16;
-signal TIMER_PS : unsigned(15 downto 0) := x"0000";
-signal TIMER_PS_threshold : unsigned(15 downto 0):=x"0001"; 
+--constant Freq_base_Clk_FPGA : unsigned(31 downto 0) := x"02FAF080"; -- 50e6 Hz;
+--constant default_baudrate : unsigned(31 downto 0) := x"00002580"; -- 9600 bauds;	
+--constant clk_multiplier : unsigned(31 downto 0) := x"00000010"; -- x16;
+--signal tmp_calc : unsigned(31 downto 0) := x"00000000"; -- x16;
+--signal TIMER_PS : unsigned(15 downto 0) := x"0000";
+--signal TIMER_PS_threshold : unsigned(15 downto 0):=x"0001"; 
 signal TIMER_BIT : unsigned(7 downto 0);
 signal TIMER_BIT_threshold : unsigned(7 downto 0) := x"00";
 signal TIMER_BIT_expired : std_logic := '0';
 signal TIMER_BIT_reset : std_logic := '1';
 
-signal Clk_FSM : std_logic := '0';
+--signal Clk_FSM : std_logic := '0';
 
 signal Reg_capture : std_logic := '0';
 --signal Reg_reset : std_logic := '1';
@@ -127,19 +128,19 @@ BIT_POINTER : Counter
 --Data_out <= Reg_output;
 
 -- Clock prescaler for state machine
-tmp_calc <= Freq_base_Clk_FPGA/(clk_multiplier*default_baudrate);
-TIMER_PS_threshold <= tmp_calc(16 downto 1);
-	
-CLOCK_PS : process(Clk) is begin
-		if rising_edge(Clk) then
-			if(TIMER_PS = TIMER_PS_threshold) then
-				TIMER_PS <= x"0000";
-				Clk_FSM <= NOT Clk_FSM;
-			else
-				TIMER_PS <= TIMER_PS+1;			
-			end if;
-		end if;
-end process;
+--tmp_calc <= Freq_base_Clk_FPGA/(clk_multiplier*default_baudrate);
+--TIMER_PS_threshold <= tmp_calc(16 downto 1);
+--	
+--CLOCK_PS : process(Clk) is begin
+--		if rising_edge(Clk) then
+--			if(TIMER_PS = TIMER_PS_threshold) then
+--				TIMER_PS <= x"0000";
+--				Clk_FSM <= NOT Clk_FSM;
+--			else
+--				TIMER_PS <= TIMER_PS+1;			
+--			end if;
+--		end if;
+--end process;
 
 -- Timer to count for bit periods and half-periods with asynchronous reset
 BIT_PERIOD_TIMER : process (Clk_FSM, TIMER_BIT_reset, TIMER_bit) is begin	
@@ -199,7 +200,7 @@ TRANSITION_LOG : process(current_state,Reset,TIMER_BIT_expired,Write_en, bitPoin
 end process;
 
 -- Output generation
-OUTPUT_GEN : process(current_state,Reg_output,bitPointer_Count) is begin
+OUTPUT_GEN : process(current_state,Reg_output,bitPointer_Count, clk_multiplier) is begin
 
 	TIMER_BIT_reset <= '1';
 	TIMER_BIT_threshold <= clk_multiplier(7 downto 0)-2;	
